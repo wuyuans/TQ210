@@ -33,9 +33,9 @@ private:
     unsigned int cap_image_size ;//to keep the real image size!!
 
     bool init_device(void);
-    void init_read(unsigned int buffer_size);
+    //void init_read(unsigned int buffer_size);
     bool init_mmap(void);
-    void init_userp(unsigned int buffer_size);
+    //void init_userp(unsigned int buffer_size);
     void uninit_device(void);
     bool start_capturing(void);
     void stop_capturing(void);
@@ -43,7 +43,7 @@ private:
     int read_frame(unsigned char *image);
     void close_device(void);
     bool open_device(void);
-    bool process_image(unsigned char *image,const void * p, int len);
+    bool process_image(unsigned char *image,const void * p);
 
     void errno_exit(const char * s);
     int xioctl(int fd, int request, void * arg);
