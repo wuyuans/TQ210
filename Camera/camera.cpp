@@ -52,6 +52,7 @@ int Camera::xioctl(int fd, int request, void * arg) {
 bool Camera::process_image(unsigned char *image,const void * p, int len) {
     //  static char[115200] Outbuff ;
     memcpy(image,p,len);
+    //image=(unsigned char*)p;
     return true;
 }
 int Camera::read_frame(unsigned char *image) {
@@ -72,8 +73,8 @@ int Camera::read_frame(unsigned char *image) {
         }
         //      printf("length = %d/r", buffers[0].length);
         //      process_image(buffers[0].start, buffers[0].length);
-        printf("image_size = %d,\t IO_METHOD_READ buffer.length=%d\n",
-               cap_image_size, buffers[0].length);
+//        printf("image_size = %d,\t IO_METHOD_READ buffer.length=%d\n",
+//               cap_image_size, buffers[0].length);
         process_image(image,buffers[0].start, cap_image_size);
         break;
     case IO_METHOD_MMAP:
@@ -94,8 +95,8 @@ int Camera::read_frame(unsigned char *image) {
         assert(buf.index < n_buffers);
         //      printf("length = %d/r", buffers[buf.index].length);
         //      process_image(buffers[buf.index].start, buffers[buf.index].length);
-        printf("image_size = %d,\t IO_METHOD_MMAP buffer.length=%d\n",
-               cap_image_size, buffers[0].length);
+//        printf("image_size = %d,\t IO_METHOD_MMAP buffer.length=%d\n",
+//               cap_image_size, buffers[0].length);
         process_image(image,buffers[0].start, cap_image_size);
         if (-1 == xioctl(fd, VIDIOC_QBUF, &buf))
             errno_exit("VIDIOC_QBUF");
@@ -122,8 +123,8 @@ int Camera::read_frame(unsigned char *image) {
         assert(i < n_buffers);
         //      printf("length = %d/r", buffers[i].length);
         //      process_image((void *) buf.m.userptr, buffers[i].length);
-        printf("image_size = %d,\t IO_METHOD_USERPTR buffer.length=%d\n",
-               cap_image_size, buffers[0].length);
+//        printf("image_size = %d,\t IO_METHOD_USERPTR buffer.length=%d\n",
+//               cap_image_size, buffers[0].length);
         process_image(image,buffers[0].start, cap_image_size);
         if (-1 == xioctl(fd, VIDIOC_QBUF, &buf))
             errno_exit("VIDIOC_QBUF");
@@ -401,8 +402,8 @@ bool Camera::init_device(void) {
     fmt.fmt.pix.height = height;
     //V4L2_PIX_FMT_YVU420, V4L2_PIX_FMT_YUV420 — Planar formats with 1/2 horizontal and vertical chroma resolution, also known as YUV 4:2:0
     //V4L2_PIX_FMT_YUYV — Packed format with 1/2 horizontal chroma resolution, also known as YUV 4:2:2
-    fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_YUYV;//V4L2_PIX_FMT_YUV420;//V4L2_PIX_FMT_YUYV;
-    fmt.fmt.pix.field = V4L2_FIELD_INTERLACED;
+    fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_YUV420;//V4L2_PIX_FMT_YUYV;//V4L2_PIX_FMT_YUV420;//V4L2_PIX_FMT_YUYV;
+    //fmt.fmt.pix.field = V4L2_FIELD_INTERLACED;
     {
         printf("-#-#-#-#-#-#-#-#-#-#-#-#-#-\n");
         printf("=====will set fmt to (%d, %d)--", fmt.fmt.pix.width,
