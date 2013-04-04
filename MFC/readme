@@ -1,0 +1,185 @@
+int main(int argc, char* argv[])
+{
+    void *hOpen;
+    SSBSIP_MFC_ENC_H264_PARAM *param;
+    int width, height;
+    int readSize, frame;
+    char *InputPath="CITY_704x576_30_orig_01.yuv";
+    char *OutputPath="CITY_704x576_30_orig_01.yuv.h264";
+
+    char* CbCrBuf;
+    char *p_nv12, *p_cb, *p_cr;
+    int	i;
+
+    clock_t starttime, endtime;
+    double totaltime;
+
+    SSBSIP_MFC_CODEC_TYPE codec_type;
+    SSBSIP_MFC_ENC_INPUT_INFO input_info;
+    SSBSIP_MFC_ENC_OUTPUT_INFO output_info;
+    SSBSIP_MFC_ERROR_CODE	ret = MFC_RET_OK;
+    FILE	*fp_yuv, *fp_strm;
+    param = (SSBSIP_MFC_ENC_H264_PARAM*)malloc(sizeof(SSBSIP_MFC_ENC_H264_PARAM));
+    width=704;
+    height=576;
+    CbCrBuf = (char *)malloc(2*width*height);
+    codec_type=H264_ENC;
+    //start loop
+
+    memset(param, 0 , sizeof(SSBSIP_MFC_ENC_H264_PARAM));
+    param->SourceWidth=width;
+    param->SourceHeight=height;
+    param->ProfileIDC=1;
+    param->LevelIDC=40;
+    param->IDRPeriod=3;
+    param->NumberReferenceFrames=1;
+    param->NumberRefForPframes=2;
+    param->SliceMode=0;
+    param->SliceArgument=1;
+    param->NumberBFrames=0;
+    param->LoopFilterDisable=0;
+    param->LoopFilterAlphaC0Offset=2;
+    param->LoopFilterBetaOffset=1;
+    param->SymbolMode=0;
+    param->PictureInterlace=0;
+    param->Transform8x8Mode=0;
+    param->RandomIntraMBRefresh=0;
+    param->PadControlOn=0;
+    param->LumaPadVal=0;
+    param->CbPadVal=0;
+    param->CrPadVal=0;
+    param->EnableFRMRateControl=0;
+    param->EnableMBRateControl=0;
+    param->FrameRate=25;
+    param->Bitrate=200;
+    param->FrameQp=20;
+    param->QSCodeMax=0;
+    param->QSCodeMin=0;
+    param->CBRPeriodRf=20;
+    param->DarkDisable=1;
+    param->SmoothDisable=1;
+    param->StaticDisable=1;
+    param->ActivityDisable=1;
+
+    param->codecType=codec_type;
+
+    param->FrameQp_P = param->FrameQp+1;
+    param->FrameQp_B = param->FrameQp+3;
+
+    printf("\n--------------------------------------------------------\n");
+    printf("Start Encoding.........(codec_type:%d)(width:%d)(height:%d)\n", codec_type, width, height);
+    printf("- inFile : %s\n", InputPath);
+    printf("- outFile : %s\n", OutputPath);
+    //printf("- refFile : %s\n", RefPath);
+
+    fp_yuv = fopen(InputPath, "rb");
+    if (fp_yuv == NULL) {
+        printf("Cannot open input YUV file.(%s)\n", InputPath);
+        ret = MFC_RET_FAIL;
+        return 0;
+    }
+    fp_strm = fopen(OutputPath, "wb");
+    if (fp_strm == NULL) {
+        printf("Cannot open output stream file.(%s)\n", OutputPath);
+        ret = MFC_RET_FAIL;
+        return 0;
+    }
+
+    hOpen = SsbSipMfcEncOpen();
+    if(hOpen == NULL)
+    {
+        printf("SsbSipMfcEncOpen Failed\n");
+        ret = MFC_RET_FAIL;
+        return 0;
+    }
+
+    if(SsbSipMfcEncInit(hOpen, param) != MFC_RET_OK)
+    {
+        printf("SsbSipMfcEncInit Failed\n");
+        ret = MFC_RET_FAIL;
+        return 0;
+    }
+
+    if(SsbSipMfcEncGetInBuf(hOpen, &input_info) != MFC_RET_OK)
+    {
+        printf("SsbSipMfcEncGetInBuf Failed\n");
+        ret = MFC_RET_FAIL;
+        return 0;
+    }
+    printf("SsbSipMfcEncGetInBuf:: Yphy(0x%08x) Cphy(0x%08x)\n", input_info.YPhyAddr, input_info.CPhyAddr);
+
+
+    SsbSipMfcEncGetOutBuf(hOpen, &output_info);
+    if(output_info.headerSize <= 0)
+    {
+        printf("Header Encoding Failed\n");
+        ret = MFC_RET_FAIL;
+        return 0;
+    }
+    fwrite(output_info.StrmVirAddr, 1, output_info.headerSize, fp_strm);
+
+    frame = 0;
+    starttime = clock();
+
+
+    do
+    {
+        readSize = fread(input_info.YVirAddr, 1, width * height, fp_yuv);
+        if(readSize == 0){
+            printf("Y readSize == 0\n");
+            break;
+        }
+
+        readSize = fread(CbCrBuf, 1, (width * height) >> 1, fp_yuv);
+        if(readSize == 0){
+            printf("CbCr readSize == 0\n");
+            break;
+        }
+
+        // convert YV12 -> NV12
+        p_nv12 = (char *)input_info.CVirAddr;
+        p_cb = CbCrBuf;
+        p_cr = CbCrBuf;
+        p_cr += ((width * height) >> 2);
+
+        for(i = 0; i < (width * height) >> 2; i++){
+            *p_nv12 = *p_cb;
+            p_nv12++;
+            *p_nv12 = *p_cr;
+            p_nv12++;
+            p_cb++;
+            p_cr++;
+        }
+
+        ret = SsbSipMfcEncExe(hOpen);
+        if(ret != MFC_RET_OK){
+            printf("Encoding Failed(frame_num : %d ret : %d)\n", frame, ret);
+            break;
+        }
+
+        SsbSipMfcEncGetOutBuf(hOpen, &output_info);
+        if(output_info.StrmVirAddr == NULL)
+        {
+            printf("SsbSipMfcEncGetOutBuf Failed\n");
+            ret = MFC_RET_FAIL;
+            break;
+        }
+        fwrite(output_info.StrmVirAddr, 1, output_info.dataSize, fp_strm);
+
+        frame++;
+
+    }while(1);
+    endtime = clock();
+    totaltime = (double)( (endtime - starttime)/(double)CLOCKS_PER_SEC );
+    SsbSipMfcEncClose(hOpen);
+    fclose(fp_yuv);
+    fclose(fp_strm);
+    printf("%d frame encoded \n", frame);
+    printf("totaltime:%f\n",totaltime);
+
+    free(param);
+    free(CbCrBuf);
+    return ret;
+
+    return 1;
+}
